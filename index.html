@@ -488,7 +488,7 @@
           <div class="combined-title">Regional comparison</div>
         </div>
         <div style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;text-align:right;max-width:280px;line-height:1.5;">
-          Bar shows where your score sits among all scores that received offers in each region, >0% means a chance of an offer
+          Bar shows where your score sits among all scores that received offers in each region
         </div>
       </div>
       <div id="regionList" style="display:flex;flex-direction:column;gap:10px;"></div>
@@ -863,7 +863,7 @@ function renderRegions(total) {
     const barRight = toX(mx);
     const barWidth = barRight - barLeft;
 
-    const col = pct >= 80 ? '#059669' : pct >= 55 ? '#d97706' : '#dc2626';
+    const col = pct >= 50 ? '#059669' : pct > 0 ? '#d97706' : '#dc2626';
 
     return `
     <div style="display:grid;grid-template-columns:160px 1fr 64px;align-items:center;gap:12px;padding:4px 0;">
@@ -916,7 +916,7 @@ function renderRegions(total) {
     const n = scores.length;
     const pct = percentileInRegion(total, scores);
     const med = scores[Math.floor(n/2)];
-    const col = pct >= 80 ? '#059669' : pct >= 55 ? '#d97706' : '#dc2626';
+    const col = pct >= 50 ? '#059669' : pct > 0 ? '#d97706' : '#dc2626';
     const trusts = (TRUST_DATA[region.name] || [])
       .slice()
       .sort((a, b) => a.scores[Math.floor(a.scores.length/2)] - b.scores[Math.floor(b.scores.length/2)]);
@@ -927,7 +927,7 @@ function renderRegions(total) {
       const ts = t.scores, tn = ts.length;
       const tpct = percentileInRegion(total, ts);
       const tmed = ts[Math.floor(tn/2)];
-      const tcol = tpct >= 80 ? '#059669' : tpct >= 55 ? '#d97706' : '#dc2626';
+      const tcol = tpct >= 50 ? '#059669' : tpct > 0 ? '#d97706' : '#dc2626';
       return `
       <div style="display:grid;grid-template-columns:160px 1fr 54px;align-items:center;gap:10px;padding:4px 12px 4px 20px;border-top:1px solid var(--border);">
         <div>
