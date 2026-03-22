@@ -393,6 +393,64 @@
     line-height: 1.8;
   }
 
+  .specialty-toggle {
+    display: flex;
+    align-items: center;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 999px;
+    padding: 4px;
+    gap: 2px;
+    margin-bottom: 32px;
+    width: fit-content;
+  }
+
+  .specialty-btn {
+    padding: 7px 20px;
+    border-radius: 999px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 400;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .specialty-btn.active {
+    background: var(--cps);
+    color: #fff;
+    font-weight: 500;
+  }
+
+  .psy-mode .specialty-btn.active {
+    background: var(--pdt);
+  }
+
+  .no-data-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 160px;
+    gap: 8px;
+    color: var(--muted);
+  }
+
+  .no-data-placeholder .ndp-icon {
+    font-size: 28px;
+    opacity: 0.4;
+  }
+
+  .no-data-placeholder p {
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.04em;
+    text-align: center;
+    line-height: 1.6;
+  }
+
   @media (max-width: 520px) {
     .about-body { grid-template-columns: 1fr; }
     .region-row { grid-template-columns: 1fr auto !important; grid-template-rows: auto auto; }
@@ -412,6 +470,10 @@
 <header>
   <h1>MSRA 2026 Score Calculator</h1>
   <p>Clinical Problem Solving &amp; Professional Dilemmas</p>
+  <div class="specialty-toggle" style="margin-top:20px;">
+    <button class="specialty-btn active" id="btnGP" onclick="setSpecialty('gp')">GP Training</button>
+    <button class="specialty-btn" id="btnPsy" onclick="setSpecialty('psy')">Core Psychiatry</button>
+  </div>
 </header>
 
 <div class="grid">
@@ -430,8 +492,12 @@
       <span class="band-dot" id="cpsBandDot"></span>
       <span id="cpsBandText">—</span>
     </div>
-    <div class="chart-wrap">
+    <div class="chart-wrap" id="cpsChartWrap">
       <canvas id="cpsChart"></canvas>
+    </div>
+    <div class="no-data-placeholder" id="cpsPlaceholder" style="display:none;">
+      <div class="ndp-icon">◻</div>
+      <p>No score distribution data<br>available for Psychiatry</p>
     </div>
   </div>
 
@@ -449,8 +515,12 @@
       <span class="band-dot" id="pdtBandDot"></span>
       <span id="pdtBandText">—</span>
     </div>
-    <div class="chart-wrap">
+    <div class="chart-wrap" id="pdtChartWrap">
       <canvas id="pdtChart"></canvas>
+    </div>
+    <div class="no-data-placeholder" id="pdtPlaceholder" style="display:none;">
+      <div class="ndp-icon">◻</div>
+      <p>No score distribution data<br>available for Psychiatry</p>
     </div>
   </div>
 
@@ -476,7 +546,7 @@
       <div class="combined-chart-wrap">
         <canvas id="combinedChart"></canvas>
       </div>
-      <div class="footnote">
+      <div class="footnote" id="combinedFootnote">
         Percentile estimates use a bivariate normal model (r = 0.65) fitted to published MSRA 2026 score band distributions.
         Combined SD reflects correlated tests. Scores outside published ranges are extrapolated.
       </div>
@@ -488,7 +558,7 @@
     <div class="combined-card" style="margin-top:0;">
       <div class="combined-header">
         <div>
-          <div class="card-label">Regional comparison — August 2025 offers (FOI data)</div>
+          <div class="card-label" id="regionCardLabel">Regional comparison — August 2025 offers (FOI data)</div>
           <div class="combined-title">Regional comparison</div>
         </div>
         <div style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;text-align:right;max-width:280px;line-height:1.5;">
@@ -496,7 +566,7 @@
         </div>
       </div>
       <div id="regionList" style="display:flex;flex-direction:column;gap:10px;"></div>
-      <div class="footnote" style="margin-top:20px;">
+      <div class="footnote" id="regionFootnote" style="margin-top:20px;">
         Source: <a href="https://www.whatdotheyknow.com/request/applicants_ranking_for_gp_in_aug_3" target="_blank" rel="noopener" style="color:var(--cps);text-decoration:none;border-bottom:1px solid transparent;" onmouseover="this.style.borderBottomColor='var(--cps)'" onmouseout="this.style.borderBottomColor='transparent'">FOI request — applicants ranking for GP August 2025</a> (WhatDoTheyKnow). Each bar shows the full distribution of MSRA 2026 scores that received offers in that region. Your score's position within that distribution indicates relative competitiveness. Does not account for post preference ordering or future cohort changes.
       </div>
     </div>
@@ -781,43 +851,43 @@ const combinedChart = new Chart(document.getElementById('combinedChart'), {
 function update() {
   const cps = parseInt(document.getElementById('cpsInput').value) || 0;
   const pdt = parseInt(document.getElementById('pdtInput').value) || 0;
+  const isGP = currentSpecialty === 'gp';
 
-  // CPS percentile + band
-  const cpsPct = getPercentile(cps, CPS_BUCKETS);
-  const cpsBucketIdx = getBucket(cps, CPS_BUCKETS);
-  document.getElementById('cpsPill').textContent = ordinal(cpsPct) + ' percentile';
-  document.getElementById('cpsBandDot').style.background = BAND_INFO[cpsBucketIdx].color;
-  document.getElementById('cpsBandText').textContent = `Band ${BAND_INFO[cpsBucketIdx].band} — ${BAND_INFO[cpsBucketIdx].label}`;
+  if (isGP) {
+    // CPS percentile + band
+    const cpsPct = getPercentile(cps, CPS_BUCKETS);
+    const cpsBucketIdx = getBucket(cps, CPS_BUCKETS);
+    document.getElementById('cpsPill').textContent = ordinal(cpsPct) + ' percentile';
+    document.getElementById('cpsBandDot').style.background = BAND_INFO[cpsBucketIdx].color;
+    document.getElementById('cpsBandText').textContent = `Band ${BAND_INFO[cpsBucketIdx].band} — ${BAND_INFO[cpsBucketIdx].label}`;
+    cpsChart.data.datasets[0].backgroundColor = barColors(9, cpsBucketIdx, 79, 156, 249);
+    cpsChart.data.datasets[0].borderColor = borderColors(9, cpsBucketIdx, 79, 156, 249);
+    cpsChart.update('none');
 
-  cpsChart.data.datasets[0].backgroundColor = barColors(9, cpsBucketIdx, 79, 156, 249);
-  cpsChart.data.datasets[0].borderColor = borderColors(9, cpsBucketIdx, 79, 156, 249);
-  cpsChart.update('none');
-
-  // PDT percentile + band
-  const pdtPct = getPercentile(pdt, PDT_BUCKETS);
-  const pdtBucketIdx = getBucket(pdt, PDT_BUCKETS);
-  document.getElementById('pdtPill').textContent = ordinal(pdtPct) + ' percentile';
-  document.getElementById('pdtBandDot').style.background = BAND_INFO[pdtBucketIdx].color;
-  document.getElementById('pdtBandText').textContent = `Band ${BAND_INFO[pdtBucketIdx].band} — ${BAND_INFO[pdtBucketIdx].label}`;
-
-  pdtChart.data.datasets[0].backgroundColor = barColors(9, pdtBucketIdx, 167, 139, 250);
-  pdtChart.data.datasets[0].borderColor = borderColors(9, pdtBucketIdx, 167, 139, 250);
-  pdtChart.update('none');
+    // PDT percentile + band
+    const pdtPct = getPercentile(pdt, PDT_BUCKETS);
+    const pdtBucketIdx = getBucket(pdt, PDT_BUCKETS);
+    document.getElementById('pdtPill').textContent = ordinal(pdtPct) + ' percentile';
+    document.getElementById('pdtBandDot').style.background = BAND_INFO[pdtBucketIdx].color;
+    document.getElementById('pdtBandText').textContent = `Band ${BAND_INFO[pdtBucketIdx].band} — ${BAND_INFO[pdtBucketIdx].label}`;
+    pdtChart.data.datasets[0].backgroundColor = barColors(9, pdtBucketIdx, 167, 139, 250);
+    pdtChart.data.datasets[0].borderColor = borderColors(9, pdtBucketIdx, 167, 139, 250);
+    pdtChart.update('none');
+  }
 
   // Combined
   const total = cps + pdt;
-  const combinedPct = getCombinedPercentile(cps, pdt);
   document.getElementById('totalScore').textContent = total;
-  document.getElementById('combinedPct').textContent = ordinal(combinedPct) + ' percentile';
 
-  const pctColor = combinedPct >= 85 ? '#34d399' : combinedPct >= 60 ? '#facc15' : '#f87171';
-  document.getElementById('combinedPct').style.color = pctColor;
-
-  // Update vertical line on combined chart
-  const lineX = total;
-  const lineY = normalPDF(lineX, combinedMean, combinedSD) * 100 * 1.1;
-  combinedChart.data.datasets[1].data = [{ x: lineX, y: 0 }, { x: lineX, y: lineY }];
-  combinedChart.update('none');
+  if (isGP) {
+    const combinedPct = getCombinedPercentile(cps, pdt);
+    document.getElementById('combinedPct').textContent = ordinal(combinedPct) + ' percentile';
+    const pctColor = combinedPct >= 85 ? '#34d399' : combinedPct >= 60 ? '#facc15' : '#f87171';
+    document.getElementById('combinedPct').style.color = pctColor;
+    const lineY = normalPDF(total, combinedMean, combinedSD) * 100 * 1.1;
+    combinedChart.data.datasets[1].data = [{ x: total, y: 0 }, { x: total, y: lineY }];
+    combinedChart.update('none');
+  }
 
   // Regional comparison
   renderRegions(total);
@@ -837,54 +907,6 @@ const REGION_DATA = [
   { name: "West Midlands", posts: 429, scores: [503,503,503,503,503,503,503,503,503,504,504,505,505,505,505,505,505,505,505,505,505,506,506,506,506,506,506,506,506,506,506,506,507,507,507,507,507,507,507,507,507,507,507,507,507,507,507,508,508,508,508,508,508,508,508,508,508,508,508,508,509,509,509,509,509,509,509,509,509,509,509,509,509,510,510,510,510,510,510,510,510,510,510,510,510,510,511,511,511,511,511,511,511,511,511,511,511,512,512,512,512,512,512,512,512,512,512,512,512,513,513,513,513,513,513,513,513,513,513,514,514,514,514,514,514,514,514,514,514,515,515,515,515,515,515,515,515,516,516,516,516,516,516,516,516,516,516,516,516,516,516,516,516,516,516,516,516,517,517,517,517,517,517,517,517,517,517,517,517,518,518,518,518,518,518,518,518,518,518,518,518,518,518,518,519,519,519,519,519,519,519,519,520,520,520,520,520,520,520,520,520,520,520,521,521,521,521,521,521,521,521,521,521,521,521,522,522,523,523,523,523,523,523,523,523,523,523,523,523,523,523,524,524,524,524,524,524,524,524,524,525,525,525,525,525,525,526,526,526,526,526,526,526,526,527,527,527,527,527,527,527,527,527,527,527,527,527,527,528,528,528,528,528,528,528,529,529,529,529,529,529,529,529,529,530,530,530,530,530,530,530,530,531,531,531,531,531,531,531,531,531,531,531,531,532,532,532,532,532,532,532,532,533,533,533,533,533,533,533,533,533,533,534,534,534,534,534,534,534,535,535,535,535,535,535,535,536,536,536,536,536,536,536,537,537,537,537,537,537,538,538,538,538,539,539,539,539,539,539,539,539,539,539,539,539,539,540,540,540,540,540,540,540,540,541,541,541,541,541,541,541,541,541,542,542,542,542,542,542,542,542,542,542,542,543,543,543,543,543,543,544,544,544,544,544,545,545,545,545,545,545,545,545,545,545,546,546,546,546,546,546,546,546,546,547,547,547,547,547,548,548,548,548,548,548,549,549,549,549,549,549,550,550,550,550,550,550,550,551,551,551,551,551,551,552,552,552,553,553,553,553,553,553,554,554,554,554,554,555,555,556,556,556,556,557,557,557,557,559,559,559,560,560,561,561,561,561,561,561,561,562,562,562,562,562,562,563,563,564,564,564,564,565,565,565,565,566,567,567,568,569,569,570,570,570,570,570,571,572,572,572,573,573,573,573,574,574,574,576,576,577,577,577,578,578,578,579,579,579,579,580,581,581,581,582,583,583,583,584,584,587,588,590,590,594,594,595,596,596,596,597,601,607,608,620] },
   { name: "Yorkshire & Humber", posts: 333, scores: [503,503,503,503,503,503,503,503,503,503,503,503,503,503,503,503,503,504,504,504,505,505,505,506,506,506,506,506,506,506,506,506,506,506,507,507,507,507,507,507,507,507,507,507,508,508,508,508,508,508,508,508,508,508,508,508,509,509,509,509,509,509,509,509,509,509,509,509,510,510,510,510,510,510,510,510,510,510,510,510,510,511,511,511,511,511,511,511,511,511,511,511,511,512,512,512,512,512,512,512,512,512,512,512,512,512,512,512,512,512,513,513,513,513,513,513,513,513,513,513,513,513,513,514,514,514,514,514,514,514,514,514,514,514,515,515,515,515,515,515,515,515,515,516,516,516,516,516,516,516,516,516,516,516,516,517,517,517,517,517,517,517,517,517,517,518,518,518,518,518,518,518,518,518,518,518,519,519,519,519,519,519,519,519,519,519,520,520,520,520,520,520,520,520,520,520,520,521,521,521,521,521,521,521,521,521,522,522,522,522,522,522,523,523,523,523,524,524,524,524,525,525,525,525,525,525,526,527,527,527,527,527,527,528,528,528,528,528,528,528,529,529,529,529,529,529,530,530,530,531,531,531,532,532,532,532,532,533,533,534,534,534,535,535,535,535,535,535,535,535,536,536,536,537,537,537,538,538,538,538,538,538,538,538,539,539,539,539,539,540,540,541,541,541,541,541,542,542,542,542,543,543,543,543,544,544,544,544,544,545,545,545,546,546,546,546,546,546,547,547,547,547,548,548,548,548,549,549,549,549,549,549,550,550,550,550,550,551,551,551,551,551,551,551,551,552,552,552,552,553,553,553,553,553,553,553,554,554,554,555,555,555,555,556,557,557,557,557,557,558,558,559,559,559,559,559,559,561,561,561,561,562,562,563,563,563,564,565,565,566,566,566,566,566,566,567,568,568,568,569,569,569,569,569,570,570,570,570,571,572,572,572,572,572,573,573,573,573,573,574,574,576,576,577,577,578,578,579,581,581,582,582,583,584,585,585,586,586,586,586,587,587,587,589,589,589,590,590,592,593,593,595,595,597,598,598,600,600,600,601,601,602,602,604,605,606,609,609,609,615,624,629] },
 ];
-
-function renderRegions(total) {
-  const container = document.getElementById('regionList');
-
-  // Sort by median score ascending (lowest median = most accessible region first)
-  const sorted = [...REGION_DATA].sort((a, b) => {
-    const medA = a.scores[Math.floor(a.scores.length / 2)];
-    const medB = b.scores[Math.floor(b.scores.length / 2)];
-    return medA - medB;
-  });
-
-  const amberCol = getComputedStyle(document.documentElement).getPropertyValue('--amber').trim() || '#f5a623';
-
-  container.innerHTML = sorted.map(region => {
-    const scores = region.scores;
-    const n = scores.length;
-    const pct = percentileInRegion(total, scores);
-    const mn = scores[0], mx = scores[n-1];
-    const med = scores[Math.floor(n/2)];
-
-    const rangeMin = 490, rangeMax = 650;
-    const clamp = v => Math.max(rangeMin, Math.min(rangeMax, v));
-    const toX = v => ((clamp(v) - rangeMin) / (rangeMax - rangeMin)) * 100;
-
-    const yourX = toX(total);
-    const medX = toX(med);
-    const barLeft = toX(mn);
-    const barRight = toX(mx);
-    const barWidth = barRight - barLeft;
-
-    const col = pct >= 50 ? '#059669' : pct > 0 ? '#d97706' : '#dc2626';
-
-    return `
-    <div style="display:grid;grid-template-columns:160px 1fr 64px;align-items:center;gap:12px;padding:4px 0;">
-      <div>
-        <div style="font-size:12px;font-weight:500;color:var(--text);font-family:'DM Sans',sans-serif;">${region.name}</div>
-        <div style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:1px;">${region.posts} posts (2025) · min ${scores[0]} · med ${med}</div>
-        <div style="position:absolute;top:50%;left:0;right:0;height:4px;background:var(--bg3);border-radius:2px;transform:translateY(-50%);"></div>
-        <div style="position:absolute;top:50%;left:${barLeft}%;width:${barWidth}%;height:6px;background:${col};opacity:0.2;border-radius:3px;transform:translateY(-50%);"></div>
-        <div style="position:absolute;top:50%;left:${toX(scores[Math.floor(n*0.25)])}%;width:${toX(scores[Math.floor(n*0.75)])-toX(scores[Math.floor(n*0.25)])}%;height:6px;background:${col};opacity:0.5;border-radius:3px;transform:translateY(-50%);"></div>
-        <div style="position:absolute;top:50%;left:${medX}%;width:2px;height:12px;background:${col};opacity:0.7;border-radius:1px;transform:translate(-50%,-50%);"></div>
-        <div style="position:absolute;top:50%;left:${yourX}%;width:10px;height:10px;background:#c47d0a;border-radius:50%;transform:translate(-50%,-50%);border:2px solid var(--bg2);z-index:2;"></div>
-      </div>
-      <div style="text-align:right;font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:${col};">${pct}%</div>
-    </div>`;
-  }).join('');
-}
-
 
 function renderBar(scores, total, col, rangeMin, rangeMax) {
   const n = scores.length;
@@ -908,8 +930,11 @@ function renderBar(scores, total, col, rangeMin, rangeMax) {
 function renderRegions(total) {
   const container = document.getElementById('regionList');
   const rangeMin = 490, rangeMax = 650;
+  const isPsy = currentSpecialty === 'psy';
+  const regionData = isPsy ? PSY_REGION_DATA : REGION_DATA;
+  const trustData = isPsy ? PSY_TRUST_DATA : TRUST_DATA;
 
-  const sorted = [...REGION_DATA].sort((a, b) => {
+  const sorted = [...regionData].sort((a, b) => {
     const medA = a.scores[Math.floor(a.scores.length / 2)];
     const medB = b.scores[Math.floor(b.scores.length / 2)];
     return medA - medB;
@@ -921,7 +946,7 @@ function renderRegions(total) {
     const pct = percentileInRegion(total, scores);
     const med = scores[Math.floor(n/2)];
     const col = pct >= 50 ? '#059669' : pct > 0 ? '#d97706' : '#dc2626';
-    const trusts = (TRUST_DATA[region.name] || [])
+    const trusts = (trustData[region.name] || [])
       .slice()
       .sort((a, b) => a.scores[Math.floor(a.scores.length/2)] - b.scores[Math.floor(b.scores.length/2)]);
     const hasTrusts = trusts.length > 1;
@@ -949,7 +974,7 @@ function renderRegions(total) {
            ${hasTrusts ? `onclick="toggleTrusts('${rowId}')"` : ''}>
         <div>
           <div style="font-size:12px;font-weight:500;color:var(--text);font-family:'DM Sans',sans-serif;">${region.name}</div>
-          <div style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:1px;">${region.posts} posts (2025) · min ${scores[0]} · med ${med}</div>
+          <div style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:1px;">${region.posts ? region.posts + ' posts (2025) · ' : ''}min ${scores[0]} · med ${med}</div>
         </div>
         ${renderBar(scores, total, col, rangeMin, rangeMax)}
         <div style="text-align:right;font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:${col};">${pct}%</div>
@@ -1118,13 +1143,133 @@ const TRUST_DATA = {
   ],
 };
 
-update();
+const PSY_REGION_DATA = [
+  {name:"East Midlands", scores:[540,542,542,543,544,544,545,545,545,546,547,548,548,549,549,549,549,549,551,552,552,553,553,554,554,554,555,558,558,560,560,560,561,561,565,565,565,566,566,567,569,570,571,572,573,576,578,580,581,582,586,589]},
+  {name:"East of England", scores:[536,537,537,537,538,538,539,539,539,540,541,542,542,542,544,545,545,545,546,547,547,547,547,548,548,548,549,549,550,550,550,552,552,552,553,554,554,555,555,555,556,556,557,557,558,558,559,559,559,559,559,559,560,561,561,562,562,563,563,565,566,566,566,567,568,569,570,570,571,571,572,572,573,574,574,575,575,576,576,576,578,579,581,581,582,582,587,587,588,592,594,596,600,606,610,625]},
+  {name:"Kent, Surrey & Sussex", scores:[546,548,549,551,551,551,551,552,553,553,553,553,553,555,555,556,556,557,557,558,558,558,560,561,562,562,563,563,564,564,565,565,566,566,567,568,568,569,569,570,571,572,572,573,573,576,576,577,579,583,584,584,585,585,588,601,603,603,628]},
+  {name:"London", scores:[539,543,568,570,571,572,573,573,573,573,575,575,576,576,576,577,577,577,578,578,578,578,578,579,579,579,579,579,580,580,580,580,580,581,581,582,582,582,582,582,583,583,583,585,585,585,585,586,586,586,587,587,587,588,588,588,588,588,588,589,589,589,590,590,591,591,592,592,593,593,593,593,595,596,596,597,597,597,598,599,599,600,601,601,602,602,603,605,606,607,608,609,610,610,613,615,616,618,619,622,624]},
+  {name:"North East", scores:[537,537,537,538,541,542,544,544,546,548,549,549,550,550,550,551,551,553,554,556,556,556,557,557,559,560,565,565,568,568,575,576,581,584,587,596,625,632]},
+  {name:"North West", scores:[531,532,532,533,534,534,534,534,534,535,535,535,535,535,535,537,538,538,538,539,541,541,542,543,544,547,547,548,548,548,548,548,549,549,550,550,550,550,550,551,552,552,552,552,552,552,552,553,554,554,555,556,556,558,559,559,559,560,561,561,561,561,562,562,562,563,563,563,563,563,563,564,564,564,565,565,565,566,566,566,567,567,567,567,568,568,569,569,569,569,569,570,570,571,571,572,572,573,573,573,575,575,576,576,576,577,577,577,578,578,580,581,582,583,583,584,585,585,587,587,588,588,589,590,591,591,592,592,593,593,593,594,594,595,595,596,601,602,610,618]},
+  {name:"South West", scores:[534,539,540,542,552,552,552,552,553,553,557,558,561,562,563,563,564,564,565,566,566,566,567,567,572,572,573,575,576,577,580,581,581,582,582,582,587,587,588,589,589,590,590,592,594,594,595,597,604]},
+  {name:"Thames Valley", scores:[566,568,568,574,575,578,582,582,584,588,594,617]},
+  {name:"Wessex", scores:[532,533,534,535,536,540,541,542,542,543,543,545,546,546,546,546,546,546,548,548,548,549,549,550,551,551,552,554,557,557,558,558,558,559,560,560,561,561,563,564,565,566,567,569,575,578,610]},
+  {name:"West Midlands", scores:[531,531,531,532,532,532,535,537,539,548,549,549,550,550,551,552,553,553,554,554,555,556,556,559,560,561,561,562,562,564,564,564,564,564,565,565,565,566,567,569,569,570,570,572,573,574,574,576,577,577,577,578,578,580,580,581,582,584,584,585,589,590,591,594,594,597,606,620]},
+  {name:"Yorkshire & Humber", scores:[540,541,546,547,548,548,549,550,551,551,552,553,553,553,553,554,554,554,556,559,560,563,564,564,565,565,565,566,566,566,566,568,568,568,569,569,569,569,571,571,572,572,573,573,573,574,575,577,578,579,579,581,582,586,586,587,587,589,590,592,593,595,595,596,599,600,607]},
+  {name:"Northern Ireland", scores:[531,531,532,533,533,533,533,534,534,534,538,544,546,546,548,549,558,558,561,562,563,563,567,569,570,572,572,577,578,579,592,593,600]},
+  {name:"Scotland", scores:[535,536,536,536,537,538,538,539,539,541,541,541,542,543,544,544,546,547,548,549,549,550,552,553,555,555,556,557,557,557,558,558,559,559,560,560,560,562,562,562,562,562,562,563,563,563,563,563,564,564,564,566,567,567,567,567,568,568,569,570,570,571,572,573,573,573,573,574,576,576,576,577,580,581,582,582,584,586,589,591,597,598,600,600,601,611,614,621,630,634]},
+  {name:"Wales", scores:[535,537,537,538,540,542,542,544,545,545,546,547,547,548,548,548,549,550,557,558,560,562,562,562,562,564,565,565,565,566,568,568,572,573,573,574,574,575,578,578,588,603,603,609,610]},
+];
+
+const PSY_TRUST_DATA = {
+  "East Midlands": [
+    {name:"East Midlands North", scores:[540,542,542,543,544,544,545,545,546,547,548,549,549,549,549,552,553,554,558,558,561,565,565,565,566,572,576,578,582]},
+    {name:"East Midlands South", scores:[545,548,549,551,552,553,554,554,555,560,560,560,561,566,567,569,570,571,573,580,581,586,589]},
+  ],
+  "East of England": [
+    {name:"Bedford and Luton", scores:[559,561,561,563,569,572,574,587]},
+    {name:"Cambridgeshire", scores:[554,555,555,556,557,559,563,571,578,579,587,592,594,610]},
+    {name:"Essex", scores:[537,538,545,546,550,552,552,553,554,555,558,558,559,559,562,565,570,570,573,575,576,581]},
+    {name:"Hertfordshire", scores:[568,571,572,576,581,582,596,606,625]},
+    {name:"Norfolk and Suffolk", scores:[536,537,537,538,539,539,539,540,541,542,542,542,544,545,545,547,547,547,547,548,548,548,549,549,550,550,552,556,557,559,559,560,562,566,566,566,567,574,575,576,582,588,600]},
+  ],
+  "Kent, Surrey & Sussex": [
+    {name:"Kent", scores:[546,551,551,552,553,553,555,557,562,563,564,564,566,567,569,570,572,572,573,583,584,588,601,603,603]},
+    {name:"Surrey", scores:[557,558,558,565,565,568,571,576,577,584,585,585,628]},
+    {name:"Sussex", scores:[548,549,551,551,553,553,553,555,556,556,558,560,561,562,563,566,568,569,573,576,579]},
+  ],
+  "London": [
+    {name:"North Central London", scores:[575,575,576,576,577,580,581,582,593,595,596,597,601,603,605,606,608,613]},
+    {name:"North East London", scores:[539,571,578,579,579,582,585,586,586,588,590,591,598,599,601,607,610]},
+    {name:"North London", scores:[543,568,570,572,573,573,573,573,576,577,578,578,579,579,580,580,580,580,581,583,585,587,587,587,589,592,596,597,599,600,602,609,616,622,624]},
+    {name:"South London", scores:[577,578,578,579,582,582,582,583,583,585,585,586,588,588,588,588,588,589,589,590,591,592,593,593,593,597,602,610,615,618,619]},
+  ],
+  "North East": [
+    {name:"North East", scores:[537,537,537,538,541,542,544,544,546,548,549,549,550,550,550,551,551,553,554,556,556,556,557,557,559,560,565,565,568,568,575,576,581,584,587,596,625,632]},
+  ],
+  "North West": [
+    {name:"Cheshire and Merseyside", scores:[533,534,534,534,535,535,535,543,544,547,547,548,548,548,548,548,550,550,550,551,552,552,552,552,552,552,553,554,554,556,559,559,559,561,561,561,562,562,563,565,566,567,567,568,568,569,569,571,572,573,575,576,578,580,588,591,593,596]},
+    {name:"Greater Manchester", scores:[531,532,532,534,535,535,538,538,541,542,550,562,563,563,563,564,564,566,567,569,569,569,570,570,571,572,575,576,577,577,577,578,581,582,583,583,584,585,587,587,588,589,590,591,592,592,593,593,594,594,595,595,601,602,618]},
+    {name:"Lancashire", scores:[538,549,552,555,556,561,563,564,565,565,573,573,576,585,610]},
+    {name:"South Cumbria", scores:[534,535,537,539,541,549,550,558,560,563,566,567]},
+  ],
+  "South West": [
+    {name:"Peninsula", scores:[534,539,540,542,558,561,563,566,567,572,580,582,582,589,589]},
+    {name:"Severn", scores:[552,552,552,552,553,553,557,562,563,564,564,565,566,566,567,572,573,575,576,577,581,581,582,587,587,588,590,590,592,594,594,595,597,604]},
+  ],
+  "Thames Valley": [
+    {name:"Thames Valley Oxford", scores:[566,568,568,574,575,578,582,582,584,588,594,617]},
+  ],
+  "Wessex": [
+    {name:"Wessex", scores:[532,533,534,535,536,540,541,542,542,543,543,545,546,546,546,546,546,546,548,548,548,549,549,550,551,551,552,554,557,557,558,558,558,559,560,560,561,561,563,564,565,566,567,569,575,578,610]},
+  ],
+  "West Midlands": [
+    {name:"West Midlands", scores:[531,531,531,532,532,532,535,537,539,548,549,549,550,550,551,552,553,553,554,554,555,556,556,559,560,561,561,562,562,564,564,564,564,564,565,565,565,566,567,569,569,570,570,572,573,574,574,576,577,577,577,578,578,580,580,581,582,584,584,585,589,590,591,594,594,597,606,620]},
+  ],
+  "Yorkshire & Humber": [
+    {name:"East", scores:[540,541,546,547,548,549,553,554,559,560,566,566,571,574,577]},
+    {name:"South", scores:[553,571,572,579,589,590,592,595,595,596,607]},
+    {name:"West", scores:[548,550,551,551,552,553,553,554,554,556,563,564,564,565,565,565,566,566,568,568,568,569,569,569,569,572,573,573,573,575,578,579,581,582,586,586,587,587,593,599,600]},
+  ],
+  "Northern Ireland": [
+    {name:"Northern Ireland", scores:[531,531,532,533,533,533,533,534,534,534,538,544,546,546,548,549,558,558,561,562,563,563,567,569,570,572,572,577,578,579,592,593,600]},
+  ],
+  "Scotland": [
+    {name:"East Region", scores:[536,537,538,539,549,550,556,557,557,557,562,563,563,563]},
+    {name:"North Region", scores:[535,536,536,538,539,541,541,546,548,552,555,559,562,563,563,567,569,573,582,589,598,634]},
+    {name:"South East Region", scores:[560,560,560,562,562,562,564,566,568,570,572,573,574,576,577,580,581,586,611,630]},
+    {name:"West Region", scores:[541,542,543,544,544,547,549,553,555,558,558,559,562,564,564,567,567,567,568,570,571,573,573,576,576,582,584,591,597,600,600,601,614,621]},
+  ],
+  "Wales": [
+    {name:"Wales - North", scores:[545,546,562,568,573,578]},
+    {name:"Wales - South", scores:[542,544,547,548,548,549,550,558,560,562,562,564,565,565,565,566,568,572,573,574,574,575,578,588,603,603,609,610]},
+    {name:"Wales - West", scores:[535,537,537,538,540,542,545,547,548,557,562]},
+  ],
+};
+
+let currentSpecialty = 'gp';
+
+function setSpecialty(s) {
+  currentSpecialty = s;
+  document.getElementById('btnGP').classList.toggle('active', s === 'gp');
+  document.getElementById('btnPsy').classList.toggle('active', s === 'psy');
+
+  const isGP = s === 'gp';
+
+  // Histograms
+  document.getElementById('cpsChartWrap').style.display = isGP ? '' : 'none';
+  document.getElementById('pdtChartWrap').style.display = isGP ? '' : 'none';
+  document.getElementById('cpsPlaceholder').style.display = isGP ? 'none' : 'flex';
+  document.getElementById('pdtPlaceholder').style.display = isGP ? 'none' : 'flex';
+
+  // Percentile pills — hide for psy
+  document.getElementById('cpsPill').style.display = isGP ? '' : 'none';
+  document.getElementById('pdtPill').style.display = isGP ? '' : 'none';
+  document.getElementById('cpsBandText').parentElement.style.display = isGP ? '' : 'none';
+  document.getElementById('pdtBandText').parentElement.style.display = isGP ? '' : 'none';
+
+  // Combined chart block
+  document.querySelector('.combined-chart-wrap').style.display = isGP ? '' : 'none';
+  document.getElementById('combinedFootnote').style.display = isGP ? '' : 'none';
+  document.getElementById('combinedPct').closest('.stat').style.display = isGP ? '' : 'none';
+
+  // Regional labels
+  document.getElementById('regionCardLabel').textContent = isGP
+    ? 'Regional comparison — August 2025 offers (FOI data)'
+    : 'Regional comparison — 2025 Psychiatry offers (FOI data)';
+  document.getElementById('regionFootnote').innerHTML = isGP
+    ? 'Source: <a href="https://www.whatdotheyknow.com/request/applicants_ranking_for_gp_in_aug_3" target="_blank" rel="noopener" style="color:var(--cps);text-decoration:none;border-bottom:1px solid transparent;">FOI request — applicants ranking for GP August 2025</a> (WhatDoTheyKnow). Each bar shows scores that received offers. Does not account for post preference ordering or future cohort changes.'
+    : 'Source: FOI request — Core Psychiatry training MSRA scores 2025 (WhatDoTheyKnow). Each bar shows the distribution of scores that received offers. No band distribution data is available for Psychiatry.';
+
+  update();
+}
 
 function setTheme(t) {
   document.documentElement.classList.toggle('light', t === 'light');
   document.getElementById('btnDark').classList.toggle('active', t === 'dark');
   document.getElementById('btnLight').classList.toggle('active', t === 'light');
 }
+
+update();
 </script>
 </body>
 </html>
